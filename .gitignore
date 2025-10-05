@@ -1,0 +1,19 @@
+# ---- Python defaults ----
+# Based on github.com/github/gitignore/Python.gitignore [web:2][web:7]
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ---- Virtual environments ----
+.venv/                    
+
+# ---- Environment & secrets ----
+.env                       
+
+# ---- IDE & editor folders (optional but common) ----
+.vscode/
+.idea/
+
+# ---- OS metadata files ----
+.DS_Store
+library.db
