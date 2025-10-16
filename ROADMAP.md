@@ -1,6 +1,6 @@
 # Personal Library Manager - Project Roadmap
 
-## Phase 0: Setup
+## Phase 0: Setup (done)
 **Goal:** Establish folder structure, environment, and dependencies.
 
 **Actions:**
