@@ -1,8 +1,12 @@
 import sqlite3
+from pathlib import Path
+
+base=Path(__file__).resolve().parent.parent
+DB = base / "DATA" / "DB" 
 
 def init_db():
     """Initialize the SQLite database only if the tables don't exist."""
-    conn = sqlite3.connect("DB/library.db")
+    conn = sqlite3.connect(DB / "library.db")
     c = conn.cursor()
 
     # Check if tables already exist
