@@ -17,3 +17,4 @@ __pycache__/
 # ---- OS metadata files ----
 .DS_Store
 library.db
+.export/

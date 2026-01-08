@@ -1,9 +1,11 @@
-# Personal Library Manager - Project Roadmap
+# 📚 Personal Library Manager – Project Roadmap (Fixed, Sane Version)
 
-## Phase 0: Setup (done)
+## Phase 0: Setup (DONE)
+
 **Goal:** Establish folder structure, environment, and dependencies.
 
 **Actions:**
+
 1. Create project folder structure:
 
 ```
@@ -13,19 +15,11 @@ personal_library_manager/
 ├── DB/
 │   └── library.db
 ├── utils/
+│   ├── __init__.py
 │   ├── db_handler.py
-│   └── mail_handler.py
+│   └── mail_handler.py   # placeholder, optional later
 ├── scripts/
 │   └── dummy_data.py
-├── templates/
-│   ├── base.html
-│   ├── index.html
-│   ├── add_book.html
-│   └── edit_book.html
-├── static/
-│   ├── css/
-│   ├── js/
-│   └── images/
 ├── tests/
 │   ├── test_utils.py
 │   └── test_models.py
@@ -38,93 +32,170 @@ personal_library_manager/
 
 ---
 
-## Phase 1: Core Database & CLI
-**Goal:** Make the backend functional before adding Flask.
+## Phase 1: Core Database Layer
+
+**Goal:** Make a solid, testable SQLite backend.
 
 **Modules:**
-- `utils/db_handler.py` → SQLite operations
-- `utils/mail_handler.py` → Email notifications (later)
-- `scripts/dummy_data.py` → For testing
+
+- `utils/db_handler.py` → All SQLite operations
+- `scripts/dummy_data.py` → Insert sample records for testing
 
 **Tasks:**
-1. Implement SQLite database with columns: `id`, `title`, `author`, `read` (boolean).
-2. Add CRUD functions in `db_handler.py`.
-3. Write pytest tests for all DB functions in `tests/test_utils.py`.
-4. Write a CLI in `project.py` to test DB functions.
+
+1. Implement SQLite database with columns:
+
+   - `id` (INTEGER, PRIMARY KEY)
+   - `title` (TEXT, NOT NULL)
+   - `author` (TEXT)
+   - `year` (INTEGER, optional)
+   - `read` (BOOLEAN)
+
+2. Create DB initialization function.
+
+3. Implement CRUD functions:
+
+   - `add_book()`
+   - `get_book_by_id()`
+   - `get_all_books()`
+   - `update_book()`
+   - `delete_book()`
 
 ---
 
-## Phase 2: Flask Integration
-**Goal:** Turn your CLI into a sleek web interface.
+## Phase 2: Input Validation & Error Handling
+
+**Goal:** Prevent garbage input and avoid crashes like an adult program.
+
+**Validation Rules to Implement:**
+
+1. **Empty titles rejected**
+
+   - Title cannot be empty or whitespace.
+   - Raise a clear exception or return an error message.
+
+2. **Invalid years handled**
+
+   - Year must be:
+
+     - An integer
+     - Reasonable (e.g., 0 < year ≤ current year)
+
+   - Non-numeric or future years fail gracefully.
+
+3. **Non-existent IDs fail gracefully**
+
+   - Updating or deleting a book ID that doesn’t exist:
+
+     - Should not crash
+     - Should return `False` or a meaningful error
+
+4. Centralize validation logic inside `db_handler.py` or helper functions.
+
+---
+
+## Phase 3: Command Line Interface (CLI)
+
+**Goal:** Make the project usable without any web nonsense.
+
+**File:**
+
+- `project.py`
 
 **Tasks:**
-1. Setup Flask in `project.py` with routes:
-   - `/` → Home, list books
-   - `/add` → Add book form
-   - `/edit/<id>` → Edit book form
-   - `/delete/<id>` → Delete book
-   - `/toggle_read/<id>` → Toggle read/unread
-   - Optional: `/search` → Search results
-2. Create HTML templates using Jinja2.
-3. Create `base.html` with consistent header, nav bar, and footer.
-4. Place CSS, JS, and images in `static/`.
+
+1. Build a menu-based CLI:
+
+   - Add book
+   - View all books
+   - Search book by ID or title
+   - Update book
+   - Delete book
+   - Mark as read/unread
+
+2. Validate user input before passing to DB functions.
+
+3. Display clean, readable output.
 
 ---
 
-## Phase 3: Advanced Features
-**Goal:** Make the project sophisticated, reflecting your learning.
+## Phase 4: Advanced CLI Features
 
-**Ideas:**
-1. Search, sort, and filter books.
-2. Pagination for large libraries.
-3. User authentication with login/signup.
-4. Email notifications for new books or reminders.
-5. REST API endpoints for books.
+**Goal:** Show sophistication without overengineering.
 
----
+**Features:**
 
-## Phase 4: Styling & UX
-**Goal:** Make it look fabulous, elegant, and sleek.
+1. Search books by:
 
-**Actions:**
-1. Use Bootstrap or Tailwind CSS.
-2. Add JavaScript interactions (toggle read/unread, live search suggestions).
-3. Add icons for actions (delete, edit, read).
-4. Add dark/light theme toggle.
-5. Add subtle animations for UI enhancements.
+   - Title
+   - Author
+
+2. Sort books:
+
+   - By title
+   - By year
+   - By read status
+
+3. Filter:
+
+   - Read vs unread
+
+4. Pagination for large libraries (simple offset/limit logic)
 
 ---
 
 ## Phase 5: Testing & Quality
-**Goal:** Ensure project is robust.
+
+**Goal:** Prove your code doesn’t panic under pressure.
 
 **Tasks:**
-1. Write pytest tests for DB functions, API routes, and mail notifications.
-2. Test form validations in Flask.
-3. Test edge cases (empty DB, long titles, special characters).
-4. Optional: Add logging for debugging.
+
+1. Write pytest tests for:
+
+   - All CRUD functions
+   - Input validation failures
+   - Edge cases
+
+2. Test edge cases:
+
+   - Empty database
+   - Empty title input
+   - Invalid year input
+   - Non-existent IDs
+
+
 
 ---
 
 ## Phase 6: Documentation & Submission
-**Goal:** Make it presentable and ready for CS50P.
+
+**Goal:** Make it submission-ready for CS50P.
 
 **Tasks:**
-1. Write README.md including project title, description, video link, folder structure, and features.
-2. Record 3-minute demo video showcasing features.
+
+1. Write `README.md` including:
+
+   - Project description
+   - Features
+   - Folder structure
+   - How to run
+
+2. Record a **3-minute demo video**:
+
+   - Show CLI
+   - Add, update, delete books
+   - Show validation errors working
+
 3. Submit using `submit50`.
 
 ---
 
-## Phase 7: Stretch Goals (Optional)
-- Deploy project to Heroku, Render, or Fly.io.
-- Add REST API authentication.
-- Integrate with Google Books API for covers and metadata.
-- Add user comments/notes on books.
-- Add charts/statistics for reading trends.
+## Phase 7: Stretch Goals (Optional, Only If Time Exists)
+
+These are **extras**, not requirements:
+
+- Export library to CSV
+- Import from CSV
+- Reading statistics (counts, percentages)
 
 ---
-
-**Outcome:**
-Following this roadmap will result in a **modular, elegant, fully-functional web application** that demonstrates your skills in **Flask, SQLite, HTML/CSS/JS, API design, and testing**.
-

@@ -90,5 +90,5 @@ def send_email(rece_mail, content,subject=""):
              smtp.login(APP_EMAIL, APP_PASSWORD)
              smtp.send_message(msg)
     except Exception as e:
-        log_error(f"{e} in send_email in male")
+        log_error(f"{e} in send_email ")
         return ""
