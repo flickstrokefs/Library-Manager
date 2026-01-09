@@ -1,252 +1,218 @@
-# ----------------------------
-# Utility Functions
-# ----------------------------
-
 import sqlite3
 from pathlib import Path
 import csv
 
-base=Path(__file__).resolve().parent.parent
-DB = base / "DATA"  /"DB" 
-CSV = base / "DATA" / "EXPORT"
+base = Path(__file__).resolve().parent.parent
+DB_DIR = base / "DATA" / "DB"
+CSV_DIR = base / "DATA" / "EXPORT"
+DB_FILE = DB_DIR / "library.db"
 
-#user functions
+
+def _connect():
+    # enable foreign keys if you ever add constraints
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("PRAGMA foreign_keys = ON;")
+    return conn
+
+
+# ----------------------------
+# USER FUNCTIONS
+# ----------------------------
+
 def check_user(username: str, password: str):
     try:
-        conn = sqlite3.connect(DB / "library.db")
-        c = conn.cursor()
-        conn.execute("BEGIN")
-
-        c.execute(
-        "SELECT id FROM users WHERE username = ? AND password = ?",
-        (username, password)
-    )
-
-        row = c.fetchone()
-        conn.close()
-
-        if row:
-            return row[0]   # user_id
-
-        
-    except sqlite3.IntegrityError:
+        with _connect() as conn:
+            row = conn.execute(
+                "SELECT id FROM users WHERE username = ? AND password = ?",
+                (username, password)
+            ).fetchone()
+            return row[0] if row else None
+    except sqlite3.Error:
         return None
-    
+
+
 def add_user(username: str, email: str, password: str):
     try:
-        conn = sqlite3.connect(DB / "library.db")
-        c = conn.cursor()
-        conn.execute("BEGIN")
-
-        c.execute(
-            "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
-            (username, email, password)
-        )
-
-        conn.commit()
-        user_id = c.lastrowid
-        conn.close()
-        return user_id
-
+        with _connect() as conn:
+            cur = conn.execute(
+                "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
+                (username, email, password)
+            )
+            return cur.lastrowid
     except sqlite3.IntegrityError:
         return None
 
 
+# ----------------------------
+# BOOK CRUD
+# ----------------------------
 
-
-
-#book functions
 def add_book(user_id: int, title: str, author: str, year: int, genre: str, read: bool = False, note: str = None) -> bool:
-    """Add a book to the library database."""
     try:
-        conn = sqlite3.connect(DB / "library.db")
-        c = conn.cursor()
-        conn.execute("BEGIN")
-        c.execute("""
-            INSERT INTO books (user_id, title, author, year, genre, read, note)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (user_id, title, author, year, genre, int(read), note))
-        conn.commit()
-        conn.close()
-        return True
-    except Exception as e:
+        with _connect() as conn:
+            conn.execute("""
+                INSERT INTO books (user_id, title, author, year, genre, read, note)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (user_id, title, author, year, genre, int(read), note))
+            return True
+    except sqlite3.Error as e:
         print("Error in add_book:", e)
         return False
 
+
 def search_books(user_id: int, keyword: str) -> list:
-    """Search for books by title or author for a specific user."""
     try:
-        conn = sqlite3.connect(DB / "library.db")
-        c = conn.cursor()
-        conn.execute("BEGIN")
-        c.execute("""
-            SELECT id, title, author, year, read, genre, note 
-            FROM books 
-            WHERE user_id = ? AND (title LIKE ? OR author LIKE ?)
-        """, (user_id, f"%{keyword}%", f"%{keyword}%"))
-        results = c.fetchall()
-        conn.close()
-        return results
-    except Exception as e:
+        with _connect() as conn:
+            results = conn.execute("""
+                SELECT id, title, author, year, read, genre, note
+                FROM books
+                WHERE user_id = ? AND (title LIKE ? OR author LIKE ?)
+            """, (user_id, f"%{keyword}%", f"%{keyword}%")).fetchall()
+            return results
+    except sqlite3.Error as e:
         print("Error in search_books:", e)
         return []
-    
-def check_book(user_id: int, book_id : int) -> bool:
-    """Check if a book exists and belongs a specific user."""
-    try:
-        conn = sqlite3.connect(DB / "library.db")
-        c = conn.cursor()
-        conn.execute("BEGIN")
-        c.execute("""
-            SELECT title 
-            FROM books 
-            WHERE user_id = ? AND id = ? 
-        """, (user_id,book_id))
-        results = c.fetchone()
-        conn.close()
-        return results is not None
-        
-    except Exception as e:
-        print("Error in check_books:", e)
-        return []
-    
-def find_book(user_id: int, book_id : int) -> tuple:
-    """find if a book exists and belongs a specific user."""
-    try:
-        conn = sqlite3.connect(DB / "library.db")
-        c = conn.cursor()
-        conn.execute("BEGIN")
-        c.execute("""
-            SELECT id, title, author, year, read, genre, note
-            FROM books 
-            WHERE user_id = ? AND id = ? 
-        """, (user_id,book_id))
-        results = c.fetchone()
-        conn.close()
-        return results
-        
-    except Exception as e:
-        print("Error in find_books:", e)
-        return []
 
-    
-def list_books(user_id: int) -> list:
-    """Return all books for a specific user as a list of tuples."""
+
+def check_book(user_id: int, book_id: int) -> bool:
     try:
-        conn = sqlite3.connect(DB / "library.db")
-        c = conn.cursor()
-        conn.execute("BEGIN")
-        c.execute("""
-            SELECT id, title, author, year, read, genre, note 
-            FROM books 
-            WHERE user_id = ?
-        """, (user_id,))
-        books = c.fetchall()
-        conn.close()
-        return books
-    except Exception as e:
+        with _connect() as conn:
+            row = conn.execute("""
+                SELECT 1 FROM books WHERE user_id = ? AND id = ?
+            """, (user_id, book_id)).fetchone()
+            return row is not None
+    except sqlite3.Error as e:
+        print("Error in check_book:", e)
+        return False
+
+
+def find_book(user_id: int, book_id: int) -> tuple | None:
+    try:
+        with _connect() as conn:
+            row = conn.execute("""
+                SELECT id, title, author, year, read, genre, note
+                FROM books
+                WHERE user_id = ? AND id = ?
+            """, (user_id, book_id)).fetchone()
+            return row
+    except sqlite3.Error as e:
+        print("Error in find_book:", e)
+        return None
+
+
+def list_books(user_id: int) -> list:
+    try:
+        with _connect() as conn:
+            return conn.execute("""
+                SELECT id, title, author, year, read, genre, note
+                FROM books
+                WHERE user_id = ?
+            """, (user_id,)).fetchall()
+    except sqlite3.Error as e:
         print("Error in list_books:", e)
         return []
 
 
-def update_book(book_id: int, title: str = None, author: str = None, year: int = None, genre: str = None, read: bool = None, note: str = None) -> bool:
-    """Update book info by ID; only provided fields are updated."""
+def update_book(book_id: int, title: str = None, author: str = None, year: int = None, read: bool = None, genre: str = None, note: str = None) -> bool:
     try:
-        conn = sqlite3.connect(DB / "library.db")
-        c = conn.cursor()
-        conn.execute("BEGIN")
-        if title:
-            c.execute("UPDATE books SET title = ? WHERE id = ?", (title, book_id))
-        if author:
-            c.execute("UPDATE books SET author = ? WHERE id = ?", (author, book_id))
-        if year:
-            c.execute("UPDATE books SET year = ? WHERE id = ?", (year, book_id))
-        if genre:
-            c.execute("UPDATE books SET genre = ? WHERE id = ?", (genre, book_id))
-        if read is not None:
-            c.execute("UPDATE books SET read = ? WHERE id = ?", (int(read), book_id))
-        if note is not None:
-            c.execute("UPDATE books SET note = ? WHERE id = ?", (note, book_id))
-        conn.commit()
-        conn.close()
-        return True
-    except Exception as e:
+        with _connect() as conn:
+            fields, values = [], []
+
+            if title:
+                fields.append("title = ?")
+                values.append(title)
+            if author:
+                fields.append("author = ?")
+                values.append(author)
+            if year is not None:
+                fields.append("year = ?")
+                values.append(year)
+            if read is not None:
+                fields.append("read = ?")
+                values.append(int(read))
+            if genre:
+                fields.append("genre = ?")
+                values.append(genre)
+            if note is not None:
+                fields.append("note = ?")
+                values.append(note)
+
+            if not fields:
+                return False  # nothing to update
+
+            values.append(book_id)
+            sql = f"UPDATE books SET {', '.join(fields)} WHERE id = ?"
+            cur = conn.execute(sql, values)
+
+            return cur.rowcount > 0
+    except sqlite3.Error as e:
         print("Error in update_book:", e)
         return False
 
 
 def delete_book(book_id: int) -> bool:
-    """Delete a book by its ID."""
     try:
-        conn = sqlite3.connect(DB / "library.db")
-        c = conn.cursor()
-        conn.execute("BEGIN")
-        c.execute("DELETE FROM books WHERE id = ?", (book_id,))
-        conn.commit()
-        conn.close()
-        return True
-    except Exception as e:
+        with _connect() as conn:
+            cur = conn.execute("DELETE FROM books WHERE id = ?", (book_id,))
+            return cur.rowcount > 0
+    except sqlite3.Error as e:
         print("Error in delete_book:", e)
         return False
 
 
-#csv handler
-def csv_exporter(user_id: int) -> bool :
-    """Exports all the user data to a csv file"""
+# ----------------------------
+# CSV IMPORT / EXPORT
+# ----------------------------
+
+def csv_exporter(user_id: int) -> bool:
     try:
-        conn = sqlite3.connect(DB / "library.db")
-        c = conn.cursor()
-        conn.execute("BEGIN")
-        c.execute("select username from users where id = ?",(user_id,))
-        username=c.fetchone()[0]
-        c.execute("""
-            SELECT b.id, title, author, year, read, genre, note 
-            FROM books b
-            where  user_id = ?
-        """, (user_id,))
-        books = c.fetchall()
-        filname =  CSV / f"{username}.csv" 
-        filname.touch(exist_ok=True)
-        File=open(filname,mode="r+",newline="\n")
-        writeread=csv.writer(File)
-        writeread.writerow(["id","title","author","year","genre","read","note"])
-        writeread.writerows(books)
-        File.close()
-        conn.close()
+        with _connect() as conn:
+            username = conn.execute(
+                "SELECT username FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+            if not username:
+                return False
+
+            rows = conn.execute("""
+                SELECT id, title, author, year, genre, read, note
+                FROM books
+                WHERE user_id = ?
+            """, (user_id,)).fetchall()
+
+        CSV_DIR.mkdir(parents=True, exist_ok=True)
+        file = CSV_DIR / f"{username[0]}.csv"
+
+        with file.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["id", "title", "author", "year", "genre", "read", "note"])
+            writer.writerows(rows)
+
         return True
+
     except Exception as e:
         print("Error in csv_exporter:", e)
         return False
 
+
 def csv_importer(user_id: int, file_path: str) -> bool:
     try:
-        conn = sqlite3.connect(DB / "library.db")
-        c = conn.cursor()
-
         rows = []
-        target = Path(file_path)
-
-        with target.open(newline="", encoding="utf-8") as f:
+        with open(file_path, newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
-            next(reader, None)  # yeet header if it exists
-            for book in reader:
-                book.pop(0)
-                book.append(user_id)
-                rows.append(book)
+            header = next(reader, None)
+            for row in reader:
+                row.pop(0)  # yeet id column
+                row.append(user_id)
+                rows.append(row)
 
-        conn.execute("BEGIN")
-        c.executemany(
-            """INSERT INTO books (title, author, year, genre, read, note, user_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            rows
-        )
-        conn.commit()
+        with _connect() as conn:
+            conn.executemany("""
+                INSERT INTO books (title, author, year, genre, read, note, user_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, rows)
 
-        c.close()
-        conn.close()
         return True
 
     except Exception as e:
         print("Error in csv_importer:", e)
         return False
-

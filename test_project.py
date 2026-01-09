@@ -1,43 +1,40 @@
-import os
 import sqlite3
 import pytest
 
-from pathlib import Path
-
-base=Path(__file__).resolve().parent.parent
-DB = base / "DATA" / "DB" 
-
-
-
-from utils.db_handler import (
-    add_book,
-    search_books,
-    list_books,
-    update_book,
-    delete_book,
-    check_book,
-    find_book,
-)
-
-TEST_DB = DB / "library.db"
+from utils import db_handler as db
 
 
 # ----------------------------
 # Pytest Fixtures
 # ----------------------------
-
 @pytest.fixture(scope="function")
-def test_db(monkeypatch):
-    os.makedirs("DB", exist_ok=True)
+def test_db(tmp_path, monkeypatch):
+    # Create an isolated temporary DB file
+    test_db_file = tmp_path / "library.db"
 
-    # Save the real connect function
+    # Make sure db_handler connects to THIS db
     real_connect = sqlite3.connect
+    monkeypatch.setattr(
+        db.sqlite3,
+        "connect",
+        lambda _: real_connect(test_db_file)
+    )
 
-    conn = real_connect(TEST_DB)
+    # Build tables we actually need
+    conn = sqlite3.connect(test_db_file)
     c = conn.cursor()
 
     c.execute("""
-        CREATE TABLE IF NOT EXISTS books (
+        CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            email TEXT,
+            password TEXT
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE books (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             title TEXT NOT NULL,
@@ -45,103 +42,83 @@ def test_db(monkeypatch):
             year INTEGER,
             genre TEXT,
             read INTEGER,
-            note TEXT
+            note TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id)
         )
     """)
+
+    # Insert a dummy user for functions that need user_id = 1
+    c.execute("INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
+              ("test_user", "x@x.com", "pass"))
     conn.commit()
     conn.close()
 
-    # Patch connect safely
-    monkeypatch.setattr(
-        sqlite3,
-        "connect",
-        lambda _: real_connect(TEST_DB)
-    )
-
     yield
-
-    os.remove(TEST_DB)
+    # tmp_path auto-cleans after the test run, no manual unlink needed
 
 
 # ----------------------------
 # CRUD TESTS
 # ----------------------------
-
 def test_add_book_success(test_db):
-    success = add_book(
-        user_id=1,
-        title="1984",
-        author="George Orwell",
-        year=1949,
-        genre="Dystopian",
-        read=True,
-        note="Classic"
-    )
+    success = db.add_book(1, "1984", "George Orwell", 1949, "Dystopian", True, "Classic")
     assert success is True
 
 
 def test_list_books_returns_books(test_db):
-    add_book(1, "Dune", "Frank Herbert", 1965, "Sci-Fi", False, None)
-    books = list_books(1)
+    db.add_book(1, "Dune", "Frank Herbert", 1965, "Sci-Fi", False, None)
+    books = db.list_books(1)
 
     assert len(books) == 1
     assert books[0][1] == "Dune"
 
 
 def test_search_books_finds_match(test_db):
-    add_book(1, "The Hobbit", "J.R.R. Tolkien", 1937, "Fantasy", True, None)
+    db.add_book(1, "The Hobbit", "J.R.R. Tolkien", 1937, "Fantasy", True, None)
+    results = db.search_books(1, "Hobbit")
 
-    results = search_books(1, "Hobbit")
     assert len(results) == 1
     assert results[0][1] == "The Hobbit"
 
 
 def test_search_books_empty_result(test_db):
-    results = search_books(1, "Nonexistent")
+    results = db.search_books(1, "Nonexistent")
     assert results == []
 
 
 def test_check_book_true_when_exists(test_db):
-    add_book(1, "Foundation", "Isaac Asimov", 1951, "Sci-Fi", False, None)
+    db.add_book(1, "Foundation", "Asimov", 1951, "Sci-Fi", False, None)
+    book_id = db.list_books(1)[0][0]
 
-    books = list_books(1)
-    book_id = books[0][0]
-
-    assert check_book(1, book_id) is True
+    assert db.check_book(1, book_id) is True
 
 
 def test_find_book_returns_tuple(test_db):
-    add_book(1, "Neuromancer", "William Gibson", 1984, "Cyberpunk", True, None)
+    db.add_book(1, "Neuromancer", "Gibson", 1984, "Cyberpunk", True, None)
+    book_id = db.list_books(1)[0][0]
 
-    book_id = list_books(1)[0][0]
-    book = find_book(1, book_id)
-
+    book = db.find_book(1, book_id)
     assert book is not None
     assert book[1] == "Neuromancer"
 
 
 def test_update_book_changes_data(test_db):
-    add_book(1, "Old Title", "Author", 2000, "Genre", False, None)
-    book_id = list_books(1)[0][0]
+    db.add_book(1, "Old Title", "Author", 2000, "Genre", False, None)
+    book_id = db.list_books(1)[0][0]
 
-    updated = update_book(
-        book_id,
-        title="New Title",
-        read=True
-    )
-
+    updated = db.update_book(book_id, title="New Title", read=True)
     assert updated is True
 
-    book = find_book(1, book_id)
+    book = db.find_book(1, book_id)
     assert book[1] == "New Title"
     assert book[4] == 1  # read flag
 
 
 def test_delete_book_removes_entry(test_db):
-    add_book(1, "To Delete", "Author", 2020, "Genre", False, None)
-    book_id = list_books(1)[0][0]
+    db.add_book(1, "To Delete", "Author", 2020, "Genre", False, None)
+    book_id = db.list_books(1)[0][0]
 
-    deleted = delete_book(book_id)
+    deleted = db.delete_book(book_id)
     assert deleted is True
 
-    assert list_books(1) == []
+    assert db.list_books(1) == []

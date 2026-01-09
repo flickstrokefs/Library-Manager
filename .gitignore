@@ -15,6 +15,5 @@ __pycache__/
 .idea/
 
 # ---- OS metadata files ----
-.DS_Store
 library.db
-.export/
+DATA/export/flick.csv

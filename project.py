@@ -3,12 +3,34 @@
 # ----------------------------
 
 import datetime as dt
+from colorama import init, Fore, Style
+init(autoreset=True)
+
+COLORS = {
+    "success": Fore.GREEN,
+    "error": Fore.RED,
+    "warn": Fore.YELLOW,
+    "info": Fore.CYAN,
+    "normal": Fore.WHITE
+}
+
+#defiing colours
+def printc(msg, level="normal", bright=False):
+    color = COLORS.get(level, Fore.WHITE)
+    style = Style.BRIGHT if bright else ""
+    print(style + color + msg)
+
+def prompt(msg, level="info", bright=False):
+    color = COLORS.get(level, Fore.WHITE)
+    style = Style.BRIGHT if bright else ""
+    return style + color + msg + Fore.RESET
+
 
 # Utils
 from utils.__init__ import init_db
-#from utils.flick_utils import log_error, log_activity, send_email
-from utils.db_handler import (check_user,add_user,add_book, delete_book, list_books, search_books, update_book,find_book,check_book,csv_importer,csv_exporter)
-
+from utils.db_handler import (check_user, add_user, add_book, delete_book,
+                              list_books, search_books, update_book, find_book,
+                              check_book, csv_importer, csv_exporter)
 
 # ----------------------------
 # Main CLI Interface
@@ -20,41 +42,40 @@ def main():
     user_id = None
 
     while True:
-        choice = input("Login or Register? (l/r): ").strip().lower()
+        choice = input(prompt("Login or Register? (l/r): ")).strip().lower()
 
         if choice == "l":
-            username = input("Username: ").strip()
-            password = input("Password: ").strip()
+            username = input(prompt("Username: ")).strip()
+            password = input(prompt("Password: ")).strip()
 
             user_id = check_user(username, password)
 
             if user_id:
-                print("✅ Login successful.")
+                printc("✅ Login successful.", "success")
                 break
             else:
-                print("❌ Invalid username or password.")
+                printc("❌ Invalid username or password.", "error")
 
         elif choice == "r":
-            username = input("Choose a username: ").strip()
-            email = input("Email: ").strip()
-            password = input("Password: ").strip()
+            username = input(prompt("Choose a username: ")).strip()
+            email = input(prompt("Email: ")).strip()
+            password = input(prompt("Password: ")).strip()
 
             user_id = add_user(username, email, password)
 
             if user_id:
-                print("✅ Account created.")
+                printc("✅ Account created.", "success")
                 break
             else:
-                print("❌ User already exists.")
+                printc("❌ User already exists.", "error")
 
         else:
-            print("❌ Enter 'l' or 'r'.")
+            printc("❌ Enter 'l' or 'r'.", "error")
 
-    # from here on, your entire app can safely rely on user_id
-    print(f"User ID in session: {user_id}")
+    printc(f"User ID in session: {user_id}", "info")
 
     while True:
-        print("\n📚 Personal Library Manager")
+        printc("\n📚 Personal Library Manager", "info", bright=True)
         print("""
         1. ➕ Add Book
         2. 📖 List Books 
@@ -66,104 +87,175 @@ def main():
         8. 🚪 Exit
         """)
 
-        choice = input("Choose an option: ").strip()
+        choice = input(prompt("Choose an option: ")).strip()
 
-        # ----------------------------
-        # ADD BOOK
-        # ----------------------------
+        # --- ADD BOOK ---
         if choice == "1":
-            title = input("Title: ").strip()
-            author = input("Author: ").strip()
+            title = input(prompt("Title: ")).strip()
+            author = input(prompt("Author: ")).strip()
 
             if not title or not author:
-                print("❌ Title and author cannot be empty.")
+                printc("❌ Title and author cannot be empty.", "error")
                 continue
 
             try:
-                year = int(input("Year: ").strip())
+                year = int(input(prompt("Year: ")).strip())
                 if year < 0:
                     raise ValueError
             except ValueError:
-                print("❌ Year must be a valid positive number.")
+                printc("❌ Year must be a valid positive number.", "error")
                 continue
 
-            read_input = input("Have you read it? (y/n): ").strip().lower()
+            read_input = input(prompt("Have you read it? (y/n): ")).strip().lower()
             if read_input not in ("y", "n"):
-                print("❌ Enter 'y' or 'n'.")
+                printc("❌ Enter 'y' or 'n'.", "error")
                 continue
-            read = read_input == "y"
 
-            genre = input("Genre/Tags (optional): ").strip()
-            note = input("Note (optional): ").strip()
+            read = read_input == "y"
+            genre = input(prompt("Genre/Tags (optional): ")).strip()
+            note = input(prompt("Note (optional): ")).strip()
 
             success = add_book(user_id, title, author, year, genre, read, note)
-            print("✅ Book added!" if success else "❌ Failed to add book.")
+            printc("✅ Book added!" if success else "❌ Failed to add book.", "success" if success else "error")
 
-        # ----------------------------
-        # LIST BOOKS
-        # ----------------------------
+        # --- LIST BOOKS ---
         elif choice == "2":
             books = list_books(user_id)
 
             if not books:
-                print("📭 No books found.")
+                printc("📭 No books found.", "warn")
                 continue
 
-            print("\nID | Title | Author | Year | Read | Genre | Note")
-            print("-" * 80)
-            for book in books:
-                read_status = "✅" if book[5] else "❌"
-                print(f"{book[0]} | {book[1]} | {book[2]} | {book[3]} | {book[4]} | {read_status} | {book[6]} | ")
-        # ----------------------------
-        # SEARCH BOOKS
-        # ----------------------------
+            filter_field = input(prompt("Filter by genre or read? (g/r/blank): ")).strip().lower()
+            if filter_field == "g":
+                genre = input(prompt("Enter genre: ")).strip().lower()
+                books = [b for b in books if b[5] and genre in b[5].lower()]
+            elif filter_field == "r":
+                read_filter = input(prompt("Read status (y/n): ")).strip().lower()
+                if read_filter == "y":
+                    books = [b for b in books if b[4] == 1]
+                elif read_filter == "n":
+                    books = [b for b in books if b[4] == 0]
+
+            SORT_FIELDS = {"title": 1, "author": 2, "year": 3, "genre": 5, "read": 4}
+            sort_key = input(prompt("Sort by (title/author/year/genre/read or blank): ")).strip().lower()
+            if sort_key in SORT_FIELDS:
+                index = SORT_FIELDS[sort_key]
+                books.sort(key=lambda b: b[index])
+
+            PAGE_SIZE = 5
+            total = len(books)
+            page = 0
+
+            while True:
+                start = page * PAGE_SIZE
+                end = start + PAGE_SIZE
+                chunk = books[start:end]
+
+                if not chunk:
+                    printc("No more results.", "warn")
+                    break
+
+                printc("\nID | Title | Author | Year | Read | Genre | Note", "info", bright=True)
+                printc("-" * 80, "info")
+
+                for book in chunk:
+                    read_status = "✅" if book[4] else "❌"
+                    printc(f"{book[0]} | {book[1]} | {book[2]} | {book[3]} | {read_status} | {book[5]} | {book[6]}")
+
+                cmd = input(prompt("\nEnter (n)ext, (p)revious, (e)xit: ")).strip().lower()
+
+                if cmd == "n":
+                    if end < total:
+                        page += 1
+                    else:
+                        printc("No more pages.", "warn")
+                elif cmd == "p":
+                    if page > 0:
+                        page -= 1
+                    else:
+                        printc("Already on first page.", "warn")
+                else:
+                    break
+
+        # --- SEARCH BOOKS ---
         elif choice == "3":
-            keyword = input("Search keyword (title/author): ").strip()
+            keyword = input(prompt("Search keyword (title/author): ")).strip()
 
             if not keyword:
-                print("❌ Search keyword cannot be empty.")
+                printc("❌ Search keyword cannot be empty.", "error")
                 continue
 
             results = search_books(user_id, keyword)
 
             if not results:
-                print("🔍 No matching books found.")
+                printc("🔍 No matching books found.", "warn")
                 continue
 
-            print("\nID | Title | Author | Year | Read | Genre | Note")
-            print("-" * 80)
-            for book in results:
-                read_status = "✅" if book[5] else "❌"
-                print(f"{book[0]} | {book[1]} | {book[2]} | {book[3]} | {book[4]} | {read_status} | {book[6]} | ")
+            PAGE_SIZE = 5
+            total = len(results)
+            page = 0
 
-        # ----------------------------
-        # UPDATE BOOK
-        # ----------------------------
+            while True:
+                start = page * PAGE_SIZE
+                end = start + PAGE_SIZE
+                chunk = results[start:end]
+
+                if not chunk:
+                    printc("No more results.", "warn")
+                    break
+
+                printc("\nID | Title | Author | Year | Read | Genre | Note", "info", bright=True)
+                printc("-" * 80, "info")
+
+                for book in chunk:
+                    read_status = "✅" if book[4] else "❌"
+                    printc(f"{book[0]} | {book[1]} | {book[2]} | {book[3]} | {read_status} | {book[5]} | {book[6]}")
+
+                cmd = input(prompt("\nEnter (n)ext, (p)revious, (e)xit: ")).strip().lower()
+                if cmd == "n":
+                    if end < total:
+                        page += 1
+                    else:
+                        printc("No more pages.", "warn")
+                elif cmd == "p":
+                    if page > 0:
+                        page -= 1
+                    else:
+                        printc("Already on first page.", "warn")
+                else:
+                    break
+
+        # --- UPDATE BOOK ---
         elif choice == "4":
             try:
-                book_id = int(input("Book ID to update: ").strip())
+                book_id = int(input(prompt("Book ID to update: ")).strip())
                 if book_id <= 0:
                     raise ValueError
             except ValueError:
-                print("❌ Invalid book ID.")
+                printc("❌ Invalid book ID.", "error")
                 continue
 
-            title = input("New Title (leave blank to skip): ").strip() or None
-            author = input("New Author (leave blank to skip): ").strip() or None
+            if not check_book(user_id, book_id):
+                printc("❌ No such book for your account.", "error")
+                continue
 
-            year_input = input("New Year (leave blank to skip): ").strip()
+            title = input(prompt("New Title (leave blank to skip): ")).strip() or None
+            author = input(prompt("New Author (leave blank to skip): ")).strip() or None
+
+            year_input = input(prompt("New Year (leave blank to skip): ")).strip()
             if year_input:
                 try:
                     year = int(year_input)
                     if year < 0:
                         raise ValueError
                 except ValueError:
-                    print("❌ Invalid year.")
+                    printc("❌ Invalid year.", "error")
                     continue
             else:
                 year = None
 
-            read_input = input("Mark as read? (y/n/leave blank to skip): ").strip().lower()
+            read_input = input(prompt("Mark as read? (y/n/leave blank to skip): ")).strip().lower()
             if read_input == "y":
                 read = True
             elif read_input == "n":
@@ -171,73 +263,60 @@ def main():
             elif read_input == "":
                 read = None
             else:
-                print("❌ Enter 'y', 'n', or leave blank.")
+                printc("❌ Enter 'y', 'n', or leave blank.", "error")
                 continue
 
-            genre = input("New Genre/Tags (leave blank to skip): ").strip() or None
-            note = input("New Note (leave blank to skip): ").strip() or None
+            genre = input(prompt("New Genre/Tags (leave blank to skip): ")).strip() or None
+            note = input(prompt("New Note (leave blank to skip): ")).strip() or None
 
             updated = update_book(book_id, title, author, year, read, genre, note)
-            print("✅ Book updated!" if updated else "❌ Failed to update.")
+            printc("✅ Book updated!" if updated else "❌ Failed to update.", "success" if updated else "error")
 
-        # ----------------------------
-        # DELETE BOOK
-        # ----------------------------
+        # --- DELETE BOOK ---
         elif choice == "5":
             try:
-                book_id = int(input("Book ID to delete: ").strip())
+                book_id = int(input(prompt("Book ID to delete: ")).strip())
                 if book_id <= 0:
                     raise ValueError
             except ValueError:
-                print("❌ Invalid book ID.")
+                printc("❌ Invalid book ID.", "error")
                 continue
 
-    
-            if check_book(user_id,book_id):
-                book=find_book(user_id,book_id)
-                read_status = "✅" if book[5] else "❌"
-                print(f"{book[0]} | {book[1]} | {book[2]} | {book[3]} | {book[4]} | {read_status} | {book[6]} | ")
+            if not check_book(user_id, book_id):
+                printc("❌ No such book for your account.", "error")
+                continue
 
-                confirm = input("Are you sure you want to delete this book? (y/n): ").strip().lower()
-                if confirm != "y":
-                    print("❎ Delete cancelled.")
-                    continue
+            book = find_book(user_id, book_id)
+            read_status = "✅" if book[4] else "❌"
+            printc(f"Deleting: {book[1]} by {book[2]} ({book[3]}) {read_status}", "warn")
 
-                success = delete_book(book_id)
-                print("✅ Book deleted!" if success else "❌ Could not delete.")
-            else:
-                print("❌ Could not delete. Book Id does not exist")
-        
-        # ----------------------------
-        # Import Books into the DB
-        # ----------------------------
+            confirm = input(prompt("Are you sure? (y/n): ")).strip().lower()
+            if confirm != "y":
+                printc("❎ Delete cancelled.", "warn")
+                continue
+
+            success = delete_book(book_id)
+            printc("✅ Book deleted!" if success else "❌ Could not delete.", "success" if success else "error")
+
+        # --- IMPORT CSV ---
         elif choice == "6":
-            try:
-               file_path=input("Enter the file path to the csv: ")
-               csv_importer(user_id=user_id,file_path=file_path)
-               print("Books imported sucesfully")
-            except Exception as e:
-                print("Failed during importing",e)
+            file_path = input(prompt("Enter the CSV file path: ")).strip()
+            success = csv_importer(user_id, file_path)
+            printc("📥 Import successful!" if success else "❌ Import failed.", "success" if success else "error")
 
-        # ----------------------------
-        # Export Books as a CSV
-        # ----------------------------
+        # --- EXPORT CSV ---
         elif choice == "7":
-            try:
-               csv_exporter(user_id)
-               print("Files Exported Succesfully, Check DATA/export/your.csv")
-            except Exception as e:
-                print("Failed during importing",e)
+            success = csv_exporter(user_id)
+            printc("📤 Export successful! Check DATA/EXPORT/" if success else "❌ Export failed.", "success" if success else "error")
 
-        # ----------------------------
-        # EXIT
-        # ----------------------------
+        # --- EXIT ---
         elif choice == "8":
-            print("👋 Goodbye!")
+            printc("👋 Goodbye!", "info")
             break
 
         else:
-            print("❗ Invalid option. Try again.")
+            printc("❗ Invalid option. Try again.", "error")
+
 
 if __name__ == "__main__":
     main()
