@@ -167,7 +167,17 @@ personal_library_manager/
 
 ---
 
-## Phase 6: Documentation & Submission
+## Phase 8: 
+
+Stretch Goals (Optional, Only If Time Exists)
+
+- Export library to CSV(done)
+- Import from CSV(done)
+- Reading statistics (counts, percentages)
+
+---
+
+## Phase 7: Documentation & Submission
 
 **Goal:** Make it submission-ready for CS50P.
 
@@ -190,9 +200,9 @@ personal_library_manager/
 
 ---
 
-## Phase 7: Stretch Goals (Optional, Only If Time Exists)
+## Phase 7: 
 
-These are **extras**, not requirements:
+Stretch Goals (Optional, Only If Time Exists)
 
 - Export library to CSV
 - Import from CSV
